@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+staticfiles/
+.pytest_cache/
+
+# Ignore Django migrations
+**/migrations/*.py
+!**/migrations/__init__.py

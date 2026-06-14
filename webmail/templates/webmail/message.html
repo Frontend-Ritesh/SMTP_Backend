@@ -1,0 +1,190 @@
+{% extends "webmail/base.html" %}
+{% block title %}{{ cleaned_subject|default:"(no subject)" }}{% endblock %}
+{% block content %}
+<div class="message-view-header">
+  <a href="{% url 'folder' folder=folder %}" class="btn-back">
+    <i class="bi bi-arrow-left"></i>
+    <span>Back to {{ folder }}</span>
+  </a>
+  <div class="message-actions-top">
+    <form method="post" action="{% url 'message_delete' folder target_uid %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this message?');">
+      {% csrf_token %}
+      <button type="submit" class="btn-action-icon danger">
+        <i class="bi bi-trash"></i>
+        <span>Delete</span>
+      </button>
+    </form>
+    {% if last_msg %}
+    <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon primary" style="text-decoration: none;">
+      <i class="bi bi-reply"></i>
+      <span>Reply</span>
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="thread-subject-header">
+  <h1>{{ cleaned_subject|default:"(no subject)" }}</h1>
+</div>
+
+<div class="thread-container">
+  {% for item in messages_in_thread %}
+    <div class="thread-card {% if item.is_target or forloop.last %}expanded{% else %}collapsed{% endif %}" id="msg-{{ item.meta.uid }}">
+      <!-- Card Header (Clickable to Toggle Collapse/Expand) -->
+      <div class="thread-card-header" onclick="toggleCard(this)">
+        <div class="sender-avatar">
+          {{ item.sender_initial }}
+        </div>
+        
+        <!-- Collapsed Sender & Snippet Info -->
+        <div class="collapsed-info-row">
+          <span class="sender-name">{{ item.sender_name }}</span>
+          <span class="subject-snippet">{{ item.meta.snippet|default:"" }}</span>
+        </div>
+        
+        <!-- Expanded Sender & Recipient Info -->
+        <div class="expanded-info-row">
+          <div class="sender-row-expanded">
+            <span class="sender-name-full">{{ item.imap.from_ }}</span>
+            <div class="recipient-row">
+              <span class="muted">to:</span> {{ item.formatted_to }}
+            </div>
+          </div>
+        </div>
+        
+        <div class="header-right-meta">
+          <span class="timestamp">{{ item.meta.date|date:"j M H:i" }}</span>
+        </div>
+      </div>
+
+      <!-- Card Body (Full Message Details) -->
+      <div class="thread-card-body">
+        <div class="message-body-container">
+          {% if item.html_body %}
+            <iframe class="email-body-iframe" srcdoc="{{ item.html_body }}" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin" onload="resizeIframe(this)"></iframe>
+          {% else %}
+            <pre class="thread-message-content">{{ item.body|default:"(no plain-text body)" }}</pre>
+          {% endif %}
+        </div>
+
+        {% if item.imap.attachments %}
+        <div class="attachments-section">
+          <h3>
+            <i class="bi bi-paperclip"></i>
+            <span>Attachments ({{ item.imap.attachments|length }})</span>
+          </h3>
+          <div class="attachments-grid">
+            {% for a in item.imap.attachments %}
+            <div class="attachment-card">
+              <div class="attachment-icon">
+                <i class="bi bi-file-earmark-arrow-down"></i>
+              </div>
+              <div class="attachment-meta">
+                <span class="attachment-name" title="{{ a.filename }}">{{ a.filename }}</span>
+                <span class="attachment-size">{{ a.size }} bytes</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <!-- Gmail-style Reply/Forward placeholder at the end of scrollable list -->
+  {% if last_msg %}
+  <div class="reply-placeholder-container" id="replyPlaceholder">
+    <button class="btn-action-icon primary" onclick="showQuickReply()">
+      <i class="bi bi-reply-fill"></i>
+      <span>Reply</span>
+    </button>
+    <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon" style="text-decoration: none;">
+      <i class="bi bi-arrow-right-short"></i>
+      <span>Forward</span>
+    </a>
+  </div>
+
+  <!-- Quick Reply Section at the Bottom (hidden by default) -->
+  <div class="quick-reply-container" id="quickReplyFormContainer" style="display: none; margin: 1rem 0.5rem 0 0.5rem;">
+    <h3>
+      <i class="bi bi-reply-fill"></i>
+      <span>Quick Reply</span>
+    </h3>
+    <form method="post" action="{% url 'compose' %}" enctype="multipart/form-data" class="quick-reply-form">
+      {% csrf_token %}
+      <input type="hidden" name="to" value="{{ last_msg.imap.from_ }}">
+      <input type="hidden" name="subject" value="Re: {{ cleaned_subject }}">
+      <input type="hidden" name="in_reply_to" value="{{ last_msg.meta.message_id }}">
+      
+      <div class="form-group">
+        <textarea name="body" class="form-control quick-reply-textarea" placeholder="Type your reply to {{ last_msg.imap.from_ }} here..." required></textarea>
+      </div>
+      
+      <div class="quick-reply-actions">
+        <button class="btn btn-primary btn-send" type="submit">
+          <i class="bi bi-send-fill"></i>
+          <span>Send Reply</span>
+        </button>
+        <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-cancel" style="text-decoration: none;">
+          Open Full Editor
+        </a>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function toggleCard(header) {
+    const card = header.closest('.thread-card');
+    if (card.classList.contains('collapsed')) {
+      card.classList.remove('collapsed');
+      card.classList.add('expanded');
+      // Recalculate heights of any iframes inside this card when expanded
+      card.querySelectorAll('.email-body-iframe').forEach(iframe => {
+        resizeIframe(iframe);
+      });
+    } else {
+      card.classList.remove('expanded');
+      card.classList.add('collapsed');
+    }
+  }
+
+  function showQuickReply() {
+    document.getElementById('replyPlaceholder').style.display = 'none';
+    const formContainer = document.getElementById('quickReplyFormContainer');
+    formContainer.style.display = 'block';
+    
+    // Focus the textarea
+    formContainer.querySelector('.quick-reply-textarea').focus();
+    
+    // Scroll the form into view inside the thread container
+    setTimeout(() => {
+      formContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 100);
+  }
+
+  function resizeIframe(iframe) {
+    setTimeout(() => {
+      try {
+        if (iframe.contentWindow && iframe.contentWindow.document.body) {
+          const body = iframe.contentWindow.document.body;
+          const html = iframe.contentWindow.document.documentElement;
+          const height = Math.max(
+            body.scrollHeight,
+            body.offsetHeight,
+            html.clientHeight,
+            html.scrollHeight,
+            html.offsetHeight
+          );
+          iframe.style.height = (height + 20) + 'px';
+        }
+      } catch (e) {
+        console.error("Iframe resize failed", e);
+        iframe.style.height = '500px';
+      }
+    }, 200);
+  }
+</script>
+{% endblock %}
