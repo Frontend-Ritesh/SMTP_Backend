@@ -33,9 +33,12 @@ urlpatterns = [
     # Webmail Operations
     path("folders/", views.FolderListView.as_view(), name="api-folders"),
     path("messages/", views.MessageListView.as_view(), name="api-messages"),
+    path("messages/bulk-action/", views.BulkMessageActionView.as_view(), name="api-messages-bulk-action"),
+    path("messages/starred/", views.StarredMessageListView.as_view(), name="api-messages-starred"),
     path("messages/<str:folder>/<int:uid>/", views.MessageDetailView.as_view(), name="api-message-detail"),
     path("send/", views.SendView.as_view(), name="api-send"),
     path("search/", views.SearchView.as_view(), name="api-search"),
+    path("drafts/", views.SaveDraftView.as_view(), name="api-drafts"),
 
     # CRUD Router routes
     path("", include(router.urls)),

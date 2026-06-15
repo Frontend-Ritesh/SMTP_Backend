@@ -295,6 +295,10 @@ class SendView(views.APIView):
                 return Response({"error": f"{f.name} exceeds the attachment size limit."}, status=400)
             attachments.append((f.name, f.read(), f.content_type or "application/octet-stream"))
 
+        in_reply_to = request.data.get("in_reply_to", "").strip() or None
+        references = request.data.get("references", "").strip() or None
+        draft_id = request.data.get("draft_id")
+
         msg = build_message(
             from_addr=mb.address,
             to=to,
@@ -302,9 +306,24 @@ class SendView(views.APIView):
             body=body,
             cc=cc,
             bcc=bcc,
-            attachments=attachments
+            attachments=attachments,
+            in_reply_to=in_reply_to,
+            references=references,
         )
         send(msg)
+
+        # Clean up draft if it exists
+        if draft_id:
+            old_draft = MessageMeta.objects.filter(mailbox=mb, folder="Drafts", message_id=draft_id).first()
+            if old_draft:
+                try:
+                    with open_mailbox(mb.address, "Drafts") as imap:
+                        imap.delete([str(old_draft.uid)])
+                    old_draft.delete()
+                    from mail.tasks import index_mailbox
+                    index_mailbox.delay(mb.id, "Drafts")
+                except Exception:
+                    pass
 
         try:
             with open_mailbox(mb.address, "INBOX") as imap:
@@ -313,8 +332,9 @@ class SendView(views.APIView):
             with open_mailbox(mb.address, "Sent") as imap:
                 imap.append(msg.as_bytes(), "Sent")
             
+            # Sync the Sent folder immediately in the database
             from mail.tasks import index_mailbox
-            index_mailbox.run(None, mb.id, "Sent")
+            index_mailbox.delay(mb.id, "Sent")
         except Exception:
             pass
 
@@ -578,4 +598,115 @@ class AdminEmailViewSet(viewsets.ModelViewSet):
     queryset = MessageMeta.objects.select_related("mailbox").all().order_by("-date")
     serializer_class = MessageMetaSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
+
+
+class BulkMessageActionView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        mb = _mailbox(request)
+        uids = request.data.get("uids", [])
+        action = request.data.get("action")  # "delete", "read", "unread", "star", "unstar"
+        folder = request.data.get("folder", "INBOX")
+
+        if not uids or not action:
+            return Response({"error": "uids and action are required"}, status=400)
+
+        try:
+            with open_mailbox(mb.address, folder) as imap:
+                if action == "delete":
+                    imap.delete([str(u) for u in uids])
+                    MessageMeta.objects.filter(mailbox=mb, folder=folder, uid__in=uids).delete()
+                elif action == "read":
+                    imap.flag([str(u) for u in uids], '\\Seen', True)
+                    MessageMeta.objects.filter(mailbox=mb, folder=folder, uid__in=uids).update(seen=True)
+                elif action == "unread":
+                    imap.flag([str(u) for u in uids], '\\Seen', False)
+                    MessageMeta.objects.filter(mailbox=mb, folder=folder, uid__in=uids).update(seen=False)
+                elif action == "star":
+                    imap.flag([str(u) for u in uids], '\\Flagged', True)
+                    MessageMeta.objects.filter(mailbox=mb, folder=folder, uid__in=uids).update(flagged=True)
+                elif action == "unstar":
+                    imap.flag([str(u) for u in uids], '\\Flagged', False)
+                    MessageMeta.objects.filter(mailbox=mb, folder=folder, uid__in=uids).update(flagged=False)
+        except ImapUnavailable:
+            return Response({"error": "Mail server unreachable"}, status=503)
+
+        return Response({"status": "success"})
+
+
+class StarredMessageListView(generics.ListAPIView):
+    serializer_class = MessageMetaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            mb = _mailbox(self.request)
+        except Http404:
+            return MessageMeta.objects.none()
+        return MessageMeta.objects.filter(mailbox=mb, flagged=True)
+
+
+class SaveDraftView(views.APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        mb = _mailbox(request)
+        to_data = request.data.get("to", "")
+        if isinstance(to_data, str):
+            to = [a.strip() for a in to_data.split(",") if a.strip()]
+        elif isinstance(to_data, list):
+            to = to_data
+        else:
+            to = []
+
+        cc_data = request.data.get("cc", "")
+        if isinstance(cc_data, str):
+            cc = [a.strip() for a in cc_data.split(",") if a.strip()]
+        elif isinstance(cc_data, list):
+            cc = cc_data
+        else:
+            cc = []
+
+        bcc_data = request.data.get("bcc", "")
+        if isinstance(bcc_data, str):
+            bcc = [a.strip() for a in bcc_data.split(",") if a.strip()]
+        elif isinstance(bcc_data, list):
+            bcc = bcc_data
+        else:
+            bcc = []
+
+        subject = request.data.get("subject", "")
+        body = request.data.get("body", "")
+        message_id = request.data.get("message_id")
+
+        msg = build_message(
+            from_addr=mb.address,
+            to=to,
+            subject=subject,
+            body=body,
+            cc=cc,
+            bcc=bcc
+        )
+
+        try:
+            if message_id:
+                old_draft = MessageMeta.objects.filter(mailbox=mb, folder="Drafts", message_id=message_id).first()
+                if old_draft:
+                    with open_mailbox(mb.address, "Drafts") as imap:
+                        imap.delete([str(old_draft.uid)])
+                    old_draft.delete()
+
+            with open_mailbox(mb.address, "Drafts") as imap:
+                imap.append(msg.as_bytes(), "Drafts")
+
+            from mail.tasks import index_mailbox
+            index_mailbox.delay(mb.id, "Drafts")
+        except Exception as e:
+            return Response({"error": f"Failed to save draft: {str(e)}"}, status=500)
+
+        return Response({
+            "status": "success",
+            "message_id": msg["Message-ID"]
+        })
  

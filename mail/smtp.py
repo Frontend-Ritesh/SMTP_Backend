@@ -31,7 +31,12 @@ def build_message(
         msg["In-Reply-To"] = in_reply_to
     if references:
         msg["References"] = references
-    msg.set_content(body)
+    
+    import re
+    plain_text = re.sub(r'<[^<]+?>', '', body)
+    msg.set_content(plain_text)
+    if "<" in body and ">" in body:
+        msg.add_alternative(body, subtype="html")
     for filename, data, mime in attachments or []:
         maintype, _, subtype = mime.partition("/")
         msg.add_attachment(
