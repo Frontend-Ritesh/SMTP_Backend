@@ -95,9 +95,23 @@ services:
 
 volumes:
   pgdata:
+    external: true
+    name: smtp_server_pgdata
   redisdata:
+    external: true
+    name: smtp_server_redisdata
   vmail:
+    external: true
+    name: smtp_server_vmail
   static:
+    external: true
+    name: smtp_server_static
   rspamd-data:
+    external: true
+    name: smtp_server_rspamd-data
   dkim-keys:
+    external: true
+    name: smtp_server_dkim-keys
   postfix-queue:
+    external: true
+    name: smtp_server_postfix-queue
