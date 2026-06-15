@@ -13,10 +13,17 @@ chmod 600 /etc/dovecot/master-users
 if [ ! -f /var/vmail/ecprivkey.pem ]; then
   echo "Generating mail-crypt key pair..."
   openssl ecparam -name prime256v1 -genkey -noout -out /var/vmail/ecprivkey.pem
+  # Convert to traditional format (SEC1) required by Dovecot mail_crypt
+  openssl ec -in /var/vmail/ecprivkey.pem -out /var/vmail/ecprivkey.pem -traditional
   openssl ec -in /var/vmail/ecprivkey.pem -pubout -out /var/vmail/ecpubkey.pem
   chown vmail:vmail /var/vmail/ecprivkey.pem /var/vmail/ecpubkey.pem
   chmod 600 /var/vmail/ecprivkey.pem
   chmod 644 /var/vmail/ecpubkey.pem
+fi
+
+# Dynamically set SSL certificate paths based on MAIL_HOSTNAME
+if [ -n "${MAIL_HOSTNAME}" ]; then
+  sed -i "s|/etc/letsencrypt/live/mail.polynexus.in/|/etc/letsencrypt/live/${MAIL_HOSTNAME}/|g" /etc/dovecot/dovecot.conf
 fi
 
 exec dovecot -F

@@ -26,4 +26,8 @@ if [ -n "${SUBMISSION_USER}" ]; then
   echo "${SUBMISSION_USER} OK" > /etc/postfix/sasl_access
 fi
 
+# Dynamically set TLS certificate paths based on MAIL_HOSTNAME
+postconf -e "smtpd_tls_cert_file = /etc/letsencrypt/live/${MAIL_HOSTNAME}/fullchain.pem"
+postconf -e "smtpd_tls_key_file = /etc/letsencrypt/live/${MAIL_HOSTNAME}/privkey.pem"
+
 exec postfix start-fg

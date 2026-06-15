@@ -1,4 +1,8 @@
-"""MailStack Django settings (12-factor: everything from environment)."""
+"""MicroMX Django settings — internal mail platform for Micronet Solutions.
+
+This is an internal-only deployment. No external billing/SaaS features.
+All configuration comes from environment variables (.env file).
+"""
 import os
 from pathlib import Path
 
@@ -47,7 +51,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
-    "DIRS": [],
+    "DIRS": [BASE_DIR / "templates"],
     "APP_DIRS": True,
     "OPTIONS": {"context_processors": [
         "django.template.context_processors.request",
@@ -76,12 +80,11 @@ TIME_ZONE = "Asia/Kolkata"
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {"staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
@@ -104,7 +107,7 @@ CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_BEAT_SCHEDULE = {
     "index-all-mailboxes": {
         "task": "mail.tasks.index_all_mailboxes",
-        "schedule": 5.0,  # every 30 seconds
+        "schedule": 5.0,
     },
 }
 
@@ -142,4 +145,3 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     "CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://localhost:3000"
 ).split(",")
-

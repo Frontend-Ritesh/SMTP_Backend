@@ -13,9 +13,9 @@
   </div>
   <ul class="sidebar-list">
     <li>
-      <a href="{% url 'admin_panel:email_list' %}" class="sidebar-item {% if request.resolver_match.url_name == 'email_list' or request.resolver_match.url_name == 'email_detail' %}active{% endif %}">
-        <i class="bi bi-envelope-check"></i>
-        <span>Tracked Emails</span>
+      <a href="{% url 'admin_panel:dashboard' %}" class="sidebar-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
       </a>
     </li>
     <li>

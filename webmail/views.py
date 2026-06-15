@@ -82,7 +82,7 @@ def inbox(request, folder: str = "INBOX"):
     from django.db.models import Count
     mb = _mailbox_or_404(request)
     if mb is None:
-        return redirect("admin_panel:email_list")
+        return redirect("admin_panel:dashboard")
 
     # Sync new mail from Dovecot on inbox load / refresh
     from mail.tasks import index_mailbox
@@ -172,7 +172,7 @@ def _clean_subject(subject_str):
 def message_detail(request, folder: str, uid: int):
     mb = _mailbox_or_404(request)
     if mb is None:
-        return redirect("admin_panel:email_list")
+        return redirect("admin_panel:dashboard")
         
     # 1. Find the target message metadata in DB
     target_meta = MessageMeta.objects.filter(mailbox=mb, folder=folder, uid=uid).first()
@@ -280,7 +280,7 @@ def message_detail(request, folder: str, uid: int):
 def message_delete(request, folder: str, uid: int):
     mb = _mailbox_or_404(request)
     if mb is None:
-        return redirect("admin_panel:email_list")
+        return redirect("admin_panel:dashboard")
     with open_mailbox(mb.address, folder) as imap:
         imap.delete([str(uid)])
     MessageMeta.objects.filter(mailbox=mb, folder=folder, uid=uid).delete()
@@ -357,7 +357,7 @@ def compose(request):
 def search(request):
     mb = _mailbox_or_404(request)
     if mb is None:
-        return redirect("admin_panel:email_list")
+        return redirect("admin_panel:dashboard")
     q = request.GET.get("q", "").strip()
     results = MessageMeta.objects.none()
     if q:

@@ -1,0 +1,193 @@
+{% extends "webmail/base.html" %}
+{% block title %}Admin Dashboard – MicroMX{% endblock %}
+{% block content %}
+
+<div class="content-header">
+  <div class="folder-title">
+    <i class="bi bi-speedometer2 folder-icon"></i>
+    <h1>Admin Dashboard</h1>
+  </div>
+  <span style="font-size:0.83rem; color:var(--color-text-muted);">Micronet Solutions — Internal Mail Infrastructure</span>
+</div>
+
+<div style="padding: 1.5rem; overflow-y: auto; flex: 1;">
+
+  {# ── PRIVACY NOTICE ── #}
+  <div style="display:flex; align-items:flex-start; gap:0.75rem; background:#fef7e0; border:1px solid #fbbc04; border-radius:10px; padding:0.85rem 1.1rem; margin-bottom:1.5rem; font-size:0.88rem; color:#7d5100;">
+    <i class="bi bi-shield-lock-fill" style="font-size:1.1rem; margin-top:1px; flex-shrink:0;"></i>
+    <span>
+      <strong>Privacy First:</strong> This panel provides infrastructure management only.
+      User email content is never accessible here — administrators cannot read, search or browse messages.
+    </span>
+  </div>
+
+  {# ── STAT CARDS ── #}
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+
+    <a href="{% url 'admin_panel:mailbox_list' %}" class="stat-card-link">
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon" style="background:hsl(217,90%,94%); color:hsl(217,89%,61%);">
+          <i class="bi bi-envelope-at"></i>
+        </div>
+        <div class="dash-stat-body">
+          <div class="dash-stat-value">{{ mailbox_count }}</div>
+          <div class="dash-stat-label">Mailboxes</div>
+        </div>
+      </div>
+    </a>
+
+    <a href="{% url 'admin_panel:domain_list' %}" class="stat-card-link">
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon" style="background:#e6f4ea; color:#34a853;">
+          <i class="bi bi-globe2"></i>
+        </div>
+        <div class="dash-stat-body">
+          <div class="dash-stat-value">{{ domain_count }}</div>
+          <div class="dash-stat-label">Domains</div>
+        </div>
+      </div>
+    </a>
+
+    <a href="/admin/accounts/organization/" class="stat-card-link">
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon" style="background:hsl(271,80%,94%); color:hsl(271,78%,56%);">
+          <i class="bi bi-building"></i>
+        </div>
+        <div class="dash-stat-body">
+          <div class="dash-stat-value">{{ org_count }}</div>
+          <div class="dash-stat-label">Companies</div>
+        </div>
+      </div>
+    </a>
+
+    <a href="/admin/auth/user/" class="stat-card-link">
+      <div class="dash-stat-card">
+        <div class="dash-stat-icon" style="background:#fce8e6; color:#ea4335;">
+          <i class="bi bi-people"></i>
+        </div>
+        <div class="dash-stat-body">
+          <div class="dash-stat-value">{{ user_count }}</div>
+          <div class="dash-stat-label">Users</div>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  {# ── QUICK NAV CARDS ── #}
+  <h2 style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--color-text-muted); margin-bottom:1rem;">Infrastructure Management</h2>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+
+    <a href="{% url 'admin_panel:mailbox_list' %}" class="dash-nav-card">
+      <i class="bi bi-person-workspace" style="font-size:1.4rem; color:hsl(217,89%,61%);"></i>
+      <div>
+        <div style="font-weight:700; font-size:0.95rem;">Email Accounts</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted); margin-top:2px;">Create &amp; manage mailboxes</div>
+      </div>
+      <i class="bi bi-chevron-right" style="margin-left:auto; color:var(--color-text-muted);"></i>
+    </a>
+
+    <a href="{% url 'admin_panel:domain_list' %}" class="dash-nav-card">
+      <i class="bi bi-globe2" style="font-size:1.4rem; color:#34a853;"></i>
+      <div>
+        <div style="font-weight:700; font-size:0.95rem;">Domains</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted); margin-top:2px;">Add &amp; manage mail domains</div>
+      </div>
+      <i class="bi bi-chevron-right" style="margin-left:auto; color:var(--color-text-muted);"></i>
+    </a>
+
+    <a href="{% url 'admin_panel:alias_list' %}" class="dash-nav-card">
+      <i class="bi bi-arrow-left-right" style="font-size:1.4rem; color:#fbbc04;"></i>
+      <div>
+        <div style="font-weight:700; font-size:0.95rem;">Aliases</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted); margin-top:2px;">Email forwarding rules</div>
+      </div>
+      <i class="bi bi-chevron-right" style="margin-left:auto; color:var(--color-text-muted);"></i>
+    </a>
+
+    <a href="/admin/accounts/organization/" class="dash-nav-card">
+      <i class="bi bi-building" style="font-size:1.4rem; color:hsl(271,78%,56%);"></i>
+      <div>
+        <div style="font-weight:700; font-size:0.95rem;">Companies</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted); margin-top:2px;">Micronet &amp; sister companies</div>
+      </div>
+      <i class="bi bi-chevron-right" style="margin-left:auto; color:var(--color-text-muted);"></i>
+    </a>
+
+    <a href="/admin/" class="dash-nav-card">
+      <i class="bi bi-gear" style="font-size:1.4rem; color:var(--color-text-muted);"></i>
+      <div>
+        <div style="font-weight:700; font-size:0.95rem;">Django Admin</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted); margin-top:2px;">Full infrastructure console</div>
+      </div>
+      <i class="bi bi-chevron-right" style="margin-left:auto; color:var(--color-text-muted);"></i>
+    </a>
+
+  </div>
+
+  {# ── RECENT ACTIVITY ── #}
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
+
+    <div>
+      <h2 style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--color-text-muted); margin-bottom:0.75rem;">Recent Mailboxes</h2>
+      <div style="background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-sm);">
+        {% for mb in recent_mailboxes %}
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; border-bottom:1px solid var(--color-border); {% if forloop.last %}border-bottom:none;{% endif %}">
+          <div style="width:36px; height:36px; border-radius:50%; background:hsl(217,90%,94%); color:hsl(217,89%,61%); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.95rem; flex-shrink:0;">
+            {{ mb.local_part|first|upper }}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ mb.address }}</div>
+            <div style="font-size:0.75rem; color:var(--color-text-muted);">Created {{ mb.created_at|date:"M d, Y" }}</div>
+          </div>
+          {% if mb.active %}
+          <span style="font-size:0.72rem; font-weight:700; background:#e6f4ea; color:#137333; padding:0.15rem 0.5rem; border-radius:999px;">Active</span>
+          {% else %}
+          <span style="font-size:0.72rem; font-weight:700; background:#f1f3f4; color:var(--color-text-muted); padding:0.15rem 0.5rem; border-radius:999px;">Suspended</span>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div style="padding:2rem; text-align:center; color:var(--color-text-muted); font-size:0.9rem;">
+          <i class="bi bi-inbox" style="display:block; font-size:2rem; margin-bottom:0.5rem;"></i>No mailboxes yet.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <h2 style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--color-text-muted); margin-bottom:0.75rem;">Companies</h2>
+      <div style="background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-sm);">
+        {% for org in recent_orgs %}
+        <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; border-bottom:1px solid var(--color-border); {% if forloop.last %}border-bottom:none;{% endif %}">
+          <div style="width:36px; height:36px; border-radius:10px; background:hsl(271,80%,94%); color:hsl(271,78%,56%); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; flex-shrink:0;">
+            {{ org.name|first|upper }}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ org.name }}</div>
+            <div style="font-size:0.75rem; color:var(--color-text-muted);">{{ org.owner.username }} · {{ org.created_at|date:"M d, Y" }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div style="padding:2rem; text-align:center; color:var(--color-text-muted); font-size:0.9rem;">
+          <i class="bi bi-building" style="display:block; font-size:2rem; margin-bottom:0.5rem;"></i>No companies yet.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<style>
+.stat-card-link { text-decoration: none; }
+.dash-stat-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem 1.25rem; display: flex; align-items: center; gap: 0.9rem; box-shadow: var(--shadow-sm); transition: 0.15s ease; }
+.dash-stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-1px); }
+.dash-stat-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
+.dash-stat-body { display: flex; flex-direction: column; }
+.dash-stat-value { font-size: 1.65rem; font-weight: 700; color: var(--color-text-main); line-height: 1.1; }
+.dash-stat-label { font-size: 0.78rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.dash-nav-card { display: flex; align-items: center; gap: 0.9rem; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 1rem 1.1rem; box-shadow: var(--shadow-sm); text-decoration: none; color: var(--color-text-main); transition: 0.15s ease; }
+.dash-nav-card:hover { background: hsl(217,90%,97%); border-color: hsl(217,89%,80%); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+</style>
+{% endblock %}

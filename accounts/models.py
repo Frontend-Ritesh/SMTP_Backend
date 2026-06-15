@@ -1,12 +1,16 @@
-"""Domains, mailboxes and aliases.
+"""Domains, mailboxes and aliases — Micronet Solutions internal mail platform.
 
 Postfix and Dovecot query these tables directly via read-only SQL maps
 (see compose/postfix/pgsql-*.cf and compose/dovecot/dovecot-sql.conf.ext),
 so creating a Mailbox row makes the address live immediately.
+
+NOTE: No external billing/SaaS. This is an internal-only platform for
+Micronet Solutions and its sister companies.
 """
 import secrets
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class SubscriptionTier(models.TextChoices):
@@ -16,6 +20,7 @@ class SubscriptionTier(models.TextChoices):
 
 
 class Organization(models.Model):
+    """Represents Micronet Solutions or one of its sister companies."""
     name = models.CharField(max_length=255)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -24,20 +29,21 @@ class Organization(models.Model):
     )
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        related_name="organizations"
+        related_name="organizations",
+        blank=True
     )
-    
-    # Billing integrations
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Billing & Subscription fields (Mocked for internal use)
     stripe_customer_id = models.CharField(max_length=255, blank=True, null=True)
     stripe_subscription_id = models.CharField(max_length=255, blank=True, null=True)
     tier = models.CharField(
         max_length=20,
         choices=SubscriptionTier.choices,
-        default=SubscriptionTier.FREE
+        default=SubscriptionTier.PRO,
     )
     subscription_status = models.CharField(max_length=50, default="active")
-    
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return self.name
@@ -54,11 +60,11 @@ class Domain(models.Model):
     name = models.CharField(max_length=255, unique=True)
     dkim_selector = models.CharField(max_length=63, default="mail")
     active = models.BooleanField(default=False)
-    
+
     # DNS Verification details
     verification_token = models.CharField(max_length=64, blank=True, unique=True)
     is_verified = models.BooleanField(default=False)
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
@@ -82,6 +88,7 @@ class Mailbox(models.Model):
     maildir_path = models.CharField(max_length=512, editable=False)
     quota_mb = models.PositiveIntegerField(default=2048)
     active = models.BooleanField(default=True)
+    avatar = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -118,13 +125,68 @@ class Alias(models.Model):
 
 
 class AppPassword(models.Model):
-    """Per-device passwords for IMAP clients when the account uses 2FA.
-
-    The webmail logs in with Django credentials + OTP; native IMAP clients
-    use one of these instead of the primary password.
-    """
+    """Per-device passwords for IMAP clients when the account uses 2FA."""
     mailbox = models.ForeignKey(Mailbox, on_delete=models.CASCADE, related_name="app_passwords")
     label = models.CharField(max_length=64)  # "Phone", "Thunderbird", ...
     password_hash = models.CharField(max_length=512)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
+
+
+class MailboxStatusLog(models.Model):
+    mailbox_id = models.PositiveIntegerField()
+    mailbox_address = models.CharField(max_length=255)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="mailbox_status_logs"
+    )
+    active = models.BooleanField()
+    changed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["changed_at"]
+        indexes = [
+            models.Index(fields=["mailbox_id", "changed_at"]),
+            models.Index(fields=["organization", "changed_at"]),
+        ]
+
+    def __str__(self) -> str:
+        status_str = "Active" if self.active else "Inactive"
+        return f"{self.mailbox_address} -> {status_str} at {self.changed_at}"
+
+
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+
+@receiver(post_save, sender=Mailbox)
+def log_mailbox_save(sender, instance, created, **kwargs):
+    if not instance.domain.organization:
+        return
+    write_log = False
+    if created:
+        write_log = True
+    else:
+        last_log = MailboxStatusLog.objects.filter(mailbox_id=instance.id).order_by("-changed_at").first()
+        if not last_log or last_log.active != instance.active:
+            write_log = True
+
+    if write_log:
+        MailboxStatusLog.objects.create(
+            mailbox_id=instance.id,
+            mailbox_address=instance.address,
+            organization=instance.domain.organization,
+            active=instance.active
+        )
+
+
+@receiver(post_delete, sender=Mailbox)
+def log_mailbox_delete(sender, instance, **kwargs):
+    if not instance.domain.organization:
+        return
+    MailboxStatusLog.objects.create(
+        mailbox_id=instance.id,
+        mailbox_address=instance.address,
+        organization=instance.domain.organization,
+        active=False
+    )
