@@ -15,9 +15,14 @@ if [ ! -f /var/vmail/ecprivkey.pem ]; then
   openssl ecparam -name prime256v1 -genkey -noout -out /var/vmail/ecprivkey.pem
   # Convert to traditional format (SEC1) required by Dovecot mail_crypt
   openssl ec -in /var/vmail/ecprivkey.pem -out /var/vmail/ecprivkey.pem
-  openssl ec -in /var/vmail/ecprivkey.pem -pubout -out /var/vmail/ecpubkey.pem
-  chown vmail:vmail /var/vmail/ecprivkey.pem /var/vmail/ecpubkey.pem
+  chown vmail:vmail /var/vmail/ecprivkey.pem
   chmod 600 /var/vmail/ecprivkey.pem
+fi
+
+if [ ! -f /var/vmail/ecpubkey.pem ]; then
+  echo "Generating mail-crypt public key..."
+  openssl ec -in /var/vmail/ecprivkey.pem -pubout -out /var/vmail/ecpubkey.pem
+  chown vmail:vmail /var/vmail/ecpubkey.pem
   chmod 644 /var/vmail/ecpubkey.pem
 fi
 
