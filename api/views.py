@@ -221,28 +221,112 @@ class MessageListView(generics.ListAPIView):
 
 class MessageDetailView(views.APIView):
     def get(self, request, folder: str, uid: int):
+        import email.utils
+        from collections import defaultdict
+        
         mb = _mailbox(request)
-        try:
-            with open_mailbox(mb.address, folder) as imap:
-                msg = next(iter(imap.fetch(f"UID {uid}", mark_seen=True)), None)
-        except ImapUnavailable:
-            return Response({"error": "Mail server unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        if msg is None or int(msg.uid) != uid:
+        
+        # 1. Fetch message metadata from database to find the conversation
+        meta = MessageMeta.objects.filter(mailbox=mb, folder=folder, uid=uid).first()
+        if meta and meta.conversation_id:
+            thread_metas = MessageMeta.objects.filter(mailbox=mb, conversation_id=meta.conversation_id).order_by('date')
+        else:
+            thread_metas = []
+
+        # 2. Group by folder to optimize IMAP connections
+        folder_to_uids = defaultdict(list)
+        for t in thread_metas:
+            folder_to_uids[t.folder].append(t.uid)
+            
+        if folder not in folder_to_uids or uid not in folder_to_uids[folder]:
+            folder_to_uids[folder].append(uid)
+
+        # 3. Fetch messages from IMAP
+        fetched_messages = {}
+        for fld, uids_list in folder_to_uids.items():
+            try:
+                with open_mailbox(mb.address, fld) as imap:
+                    criteria = f"UID {','.join(map(str, sorted(set(uids_list))))}"
+                    # Mark messages as seen when fetching from the target folder
+                    for msg in imap.fetch(criteria, mark_seen=(fld == folder)):
+                        m_uid = int(msg.uid)
+                        
+                        # Parse sender info
+                        name, email_addr = email.utils.parseaddr(msg.from_)
+                        sender_name = name or email_addr
+                        sender_email = email_addr
+                        
+                        # Look up sender's avatar from local mailboxes
+                        sender_avatar = None
+                        if "@" in email_addr:
+                            local_part, domain_name = email_addr.split("@", 1)
+                            sender_mb = Mailbox.objects.filter(
+                                local_part__iexact=local_part.strip(),
+                                domain__name__iexact=domain_name.strip(),
+                                active=True
+                            ).first()
+                            if sender_mb:
+                                sender_avatar = sender_mb.avatar
+                                
+                        date_iso = msg.date.isoformat() if msg.date else None
+                        attachments_list = [
+                            {"filename": a.filename, "size": a.size, "content_type": a.content_type}
+                            for a in msg.attachments
+                        ]
+                        
+                        fetched_messages[(fld, m_uid)] = {
+                            "uid": m_uid,
+                            "folder": fld,
+                            "subject": msg.subject,
+                            "from": msg.from_,
+                            "to": msg.to,
+                            "date": date_iso,
+                            "text": msg.text or "(no plain-text part; HTML rendering not enabled)",
+                            "html": msg.html or "",
+                            "attachments": attachments_list,
+                            "message_id": (msg.headers.get("message-id", ("",))[0]).strip(),
+                            "references": (msg.headers.get("references", ("",))[0]).strip(),
+                            "in_reply_to": (msg.headers.get("in-reply-to", ("",))[0]).strip(),
+                            "sender_name": sender_name,
+                            "sender_email": sender_email,
+                            "sender_avatar": sender_avatar,
+                            "is_target": (fld == folder and m_uid == uid)
+                        }
+            except ImapUnavailable:
+                if fld == folder:
+                    return Response({"error": "Mail server unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        target_key = (folder, uid)
+        if target_key not in fetched_messages:
             raise Http404
-        
+
+        # 4. Assemble the thread list
+        thread = []
+        seen_keys = set()
+        if thread_metas:
+            for t in thread_metas:
+                key = (t.folder, t.uid)
+                if key in fetched_messages:
+                    thread.append(fetched_messages[key])
+                    seen_keys.add(key)
+
+        if target_key not in seen_keys:
+            thread.append(fetched_messages[target_key])
+            seen_keys.add(target_key)
+
+        for key, val in fetched_messages.items():
+            if key not in seen_keys:
+                thread.append(val)
+
+        # Sort thread chronologically
+        thread.sort(key=lambda m: m["date"] or "")
+
+        # Mark target message as seen in database
         MessageMeta.objects.filter(mailbox=mb, folder=folder, uid=uid).update(seen=True)
-        
-        return Response({
-            "uid": uid,
-            "subject": msg.subject,
-            "from": msg.from_,
-            "to": msg.to,
-            "date": msg.date.isoformat() if msg.date else None,
-            "text": msg.text or "(no plain-text part; HTML rendering not enabled)",
-            "html": msg.html or "",
-            "attachments": [{"filename": a.filename, "size": a.size,
-                             "content_type": a.content_type} for a in msg.attachments],
-        })
+
+        response_data = fetched_messages[target_key].copy()
+        response_data["thread"] = thread
+        return Response(response_data)
 
     def delete(self, request, folder: str, uid: int):
         mb = _mailbox(request)
@@ -253,6 +337,29 @@ class MessageDetailView(views.APIView):
             return Response({"error": "Mail server unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         MessageMeta.objects.filter(mailbox=mb, folder=folder, uid=uid).delete()
         return Response({"status": "deleted"})
+
+
+class MessageAttachmentDownloadView(views.APIView):
+    def get(self, request, folder: str, uid: int, idx: int):
+        mb = _mailbox(request)
+        try:
+            with open_mailbox(mb.address, folder) as imap:
+                msg = next(iter(imap.fetch(f"UID {uid}")), None)
+        except ImapUnavailable:
+            return Response({"error": "Mail server unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        if msg is None or int(msg.uid) != uid:
+            raise Http404
+
+        attachments = list(msg.attachments)
+        if idx < 0 or idx >= len(attachments):
+            raise Http404
+
+        att = attachments[idx]
+        from django.http import HttpResponse
+        response = HttpResponse(att.payload, content_type=att.content_type)
+        response['Content-Disposition'] = f'attachment; filename="{att.filename}"'
+        return response
 
 
 class SendView(views.APIView):

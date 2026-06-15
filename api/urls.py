@@ -36,6 +36,7 @@ urlpatterns = [
     path("messages/bulk-action/", views.BulkMessageActionView.as_view(), name="api-messages-bulk-action"),
     path("messages/starred/", views.StarredMessageListView.as_view(), name="api-messages-starred"),
     path("messages/<str:folder>/<int:uid>/", views.MessageDetailView.as_view(), name="api-message-detail"),
+    path("messages/<str:folder>/<int:uid>/attachments/<int:idx>/", views.MessageAttachmentDownloadView.as_view(), name="api-message-attachment"),
     path("send/", views.SendView.as_view(), name="api-send"),
     path("search/", views.SearchView.as_view(), name="api-search"),
     path("drafts/", views.SaveDraftView.as_view(), name="api-drafts"),

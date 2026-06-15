@@ -12,7 +12,8 @@ class MessageMetaSerializer(serializers.ModelSerializer):
         model = MessageMeta
         fields = [
             "id", "uid", "folder", "subject", "from_addr", "to_addrs",
-            "date", "size", "seen", "flagged", "snippet", "mailbox_address"
+            "date", "size", "seen", "flagged", "snippet", "mailbox_address",
+            "conversation_id"
         ]
 
 
