@@ -6,8 +6,8 @@ sed -i "s|__SQL_RO_USER__|${SQL_RO_USER}|; s|__SQL_RO_PASSWORD__|${SQL_RO_PASSWO
 if [ ! -f /var/vmail/ecprivkey.pem ]; then
   echo "Generating mail-crypt key pair..."
   openssl ecparam -name prime256v1 -genkey -noout -out /var/vmail/ecprivkey.pem
-  # Convert to traditional format (SEC1) required by Dovecot mail_crypt
-  openssl ec -in /var/vmail/ecprivkey.pem -out /var/vmail/ecprivkey.pem
+  # Convert to standard PKCS#8 format (-----BEGIN PRIVATE KEY-----) required by Dovecot mail_crypt
+  openssl pkey -in /var/vmail/ecprivkey.pem -out /var/vmail/ecprivkey.pem
   chown vmail:vmail /var/vmail/ecprivkey.pem
   chmod 600 /var/vmail/ecprivkey.pem
 fi
