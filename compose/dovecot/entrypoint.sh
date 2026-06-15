@@ -2,22 +2,7 @@
 set -e
 sed -i "s|__SQL_RO_USER__|${SQL_RO_USER}|; s|__SQL_RO_PASSWORD__|${SQL_RO_PASSWORD}|; s|__POSTGRES_DB__|${POSTGRES_DB}|" \
     /etc/dovecot/dovecot-sql.conf.ext
-# Generate EC keypair for mail-crypt if not exists
-if [ ! -f /var/vmail/ecprivkey.pem ]; then
-  echo "Generating mail-crypt key pair..."
-  openssl ecparam -name prime256v1 -genkey -noout -out /var/vmail/ecprivkey.pem
-  # Convert to standard PKCS#8 format (-----BEGIN PRIVATE KEY-----) required by Dovecot mail_crypt
-  openssl pkey -in /var/vmail/ecprivkey.pem -out /var/vmail/ecprivkey.pem
-  chown vmail:vmail /var/vmail/ecprivkey.pem
-  chmod 600 /var/vmail/ecprivkey.pem
-fi
-
-if [ ! -f /var/vmail/ecpubkey.pem ]; then
-  echo "Generating mail-crypt public key..."
-  openssl ec -in /var/vmail/ecprivkey.pem -pubout -out /var/vmail/ecpubkey.pem
-  chown vmail:vmail /var/vmail/ecpubkey.pem
-  chmod 644 /var/vmail/ecpubkey.pem
-fi
+# Key generation for mail-crypt is disabled.
 
 # Master user password file (webmail service credential).
 printf '%s:{ARGON2ID}%s\n' "${DOVECOT_MASTER_USER}" \
