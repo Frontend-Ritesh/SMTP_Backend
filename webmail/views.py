@@ -305,6 +305,8 @@ def compose(request):
                 return redirect("compose")
             attachments.append((f.name, f.read(), f.content_type or "application/octet-stream"))
             
+        bcc = [a.strip() for a in request.POST.get("bcc", "").split(",") if a.strip()]
+            
         in_reply_to = request.POST.get("in_reply_to", "").strip()
         references = request.POST.get("references", "").strip()
         
@@ -318,12 +320,13 @@ def compose(request):
                     if mid not in unique_ids:
                         unique_ids.append(mid)
                 references = " ".join(unique_ids)
-
+ 
         msg = build_message(
             from_addr=mb.address, to=to,
             subject=request.POST.get("subject", ""),
             body=request.POST.get("body", ""),
             attachments=attachments,
+            bcc=bcc,
             in_reply_to=in_reply_to,
             references=references,
         )

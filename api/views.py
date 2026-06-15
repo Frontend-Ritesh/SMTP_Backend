@@ -275,6 +275,14 @@ class SendView(views.APIView):
         else:
             cc = []
 
+        bcc_data = request.data.get("bcc", "")
+        if isinstance(bcc_data, str):
+            bcc = [a.strip() for a in bcc_data.split(",") if a.strip()]
+        elif isinstance(bcc_data, list):
+            bcc = bcc_data
+        else:
+            bcc = []
+
         subject = request.data.get("subject", "")
         body = request.data.get("body", "")
 
@@ -293,6 +301,7 @@ class SendView(views.APIView):
             subject=subject,
             body=body,
             cc=cc,
+            bcc=bcc,
             attachments=attachments
         )
         send(msg)

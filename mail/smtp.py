@@ -12,6 +12,7 @@ def build_message(
     subject: str,
     body: str,
     cc: list[str] | None = None,
+    bcc: list[str] | None = None,
     attachments: list[tuple[str, bytes, str]] | None = None,  # (filename, data, mime)
     in_reply_to: str | None = None,
     references: str | None = None,
@@ -21,6 +22,8 @@ def build_message(
     msg["To"] = ", ".join(to)
     if cc:
         msg["Cc"] = ", ".join(cc)
+    if bcc:
+        msg["Bcc"] = ", ".join(bcc)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=from_addr.split("@", 1)[1])
