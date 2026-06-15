@@ -239,6 +239,7 @@ class MessageDetailView(views.APIView):
             "to": msg.to,
             "date": msg.date.isoformat() if msg.date else None,
             "text": msg.text or "(no plain-text part; HTML rendering not enabled)",
+            "html": msg.html or "",
             "attachments": [{"filename": a.filename, "size": a.size,
                              "content_type": a.content_type} for a in msg.attachments],
         })
