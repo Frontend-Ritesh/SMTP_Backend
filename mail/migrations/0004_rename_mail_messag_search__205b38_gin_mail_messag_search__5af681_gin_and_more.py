@@ -10,14 +10,4 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="messagemeta",
-            new_name="mail_messag_search__5af681_gin",
-            old_name="mail_messag_search__205b38_gin",
-        ),
-        migrations.RenameIndex(
-            model_name="messagemeta",
-            new_name="mail_messag_mailbox_5a4d34_idx",
-            old_name="mail_messag_mailbox_82e88a_idx",
-        ),
     ]
