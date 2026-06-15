@@ -209,10 +209,10 @@ class MessageListView(generics.ListAPIView):
             return MessageMeta.objects.none()
         folder = self.request.query_params.get("folder", "INBOX")
         
-        # Sync new mail from Dovecot on inbox load / refresh
+        # Sync new mail from Dovecot asynchronously in background
         from mail.tasks import index_mailbox
         try:
-            index_mailbox.run(None, mb.id, folder)
+            index_mailbox.delay(mb.id, folder)
         except Exception:
             pass
             
