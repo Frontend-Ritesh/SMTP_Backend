@@ -190,3 +190,11 @@ def log_mailbox_delete(sender, instance, **kwargs):
         organization=instance.domain.organization,
         active=False
     )
+
+
+@receiver(post_save, sender=Mailbox)
+def send_welcome_email(sender, instance, created, **kwargs):
+    if created:
+        from django.db import transaction
+        from mail.tasks import send_welcome_email_task
+        transaction.on_commit(lambda: send_welcome_email_task.delay(instance.id))

@@ -99,3 +99,44 @@ def index_mailbox(self, mailbox_id: int, folder: str = "INBOX"):
         search_vector=SearchVector("subject", "from_addr", "to_addrs", "snippet")
     )
     log.info("indexed mailbox=%s folder=%s", mb.address, folder)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=10)
+def send_welcome_email_task(self, mailbox_id: int):
+    from django.conf import settings
+    from mail.smtp import build_message, send
+    try:
+        mb = Mailbox.objects.get(pk=mailbox_id)
+        sender = settings.SUBMISSION_USER or f"noreply@{mb.domain.name}"
+        
+        subject = f"Welcome to your new mailbox, {mb.local_part}!"
+        body = f"""Hello,
+
+Welcome to your new self-hosted mailbox!
+
+Your email address is: {mb.address}
+
+You can access your emails anytime via the Webmail interface. Here are your connection settings if you want to use an external mail client (like Outlook, Thunderbird, or mobile apps):
+
+- IMAP Server: {mb.domain.name}
+- IMAP Port: 993 (SSL/TLS) or 143 (STARTTLS)
+- SMTP Server: {mb.domain.name}
+- SMTP Port: 587 (STARTTLS)
+- Username: {mb.address}
+
+If you need any assistance, please contact your workspace administrator.
+
+Best regards,
+Micronet Solutions IT Support Team
+"""
+        msg = build_message(
+            from_addr=sender,
+            to=[mb.address],
+            subject=subject,
+            body=body
+        )
+        send(msg)
+        log.info("Welcome email sent to %s", mb.address)
+    except Exception as exc:
+        log.error("Failed to send welcome email to mailbox_id=%s: %s", mailbox_id, exc)
+        raise self.retry(exc=exc)
