@@ -15,7 +15,7 @@
       </button>
     </form>
     {% if last_msg %}
-    <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon primary" style="text-decoration: none;">
+    <a href="{% url 'compose' %}?to={{ reply_to_address|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon primary" style="text-decoration: none;">
       <i class="bi bi-reply"></i>
       <span>Reply</span>
     </a>
@@ -99,7 +99,7 @@
       <i class="bi bi-reply-fill"></i>
       <span>Reply</span>
     </button>
-    <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon" style="text-decoration: none;">
+    <a href="{% url 'compose' %}?to={{ reply_to_address|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-action-icon" style="text-decoration: none;">
       <i class="bi bi-arrow-right-short"></i>
       <span>Forward</span>
     </a>
@@ -113,12 +113,12 @@
     </h3>
     <form method="post" action="{% url 'compose' %}" enctype="multipart/form-data" class="quick-reply-form">
       {% csrf_token %}
-      <input type="hidden" name="to" value="{{ last_msg.imap.from_ }}">
+      <input type="hidden" name="to" value="{{ reply_to_address }}">
       <input type="hidden" name="subject" value="Re: {{ cleaned_subject }}">
       <input type="hidden" name="in_reply_to" value="{{ last_msg.meta.message_id }}">
       
       <div class="form-group">
-        <textarea name="body" class="form-control quick-reply-textarea" placeholder="Type your reply to {{ last_msg.imap.from_ }} here..." required></textarea>
+        <textarea name="body" class="form-control quick-reply-textarea" placeholder="Type your reply to {{ reply_to_address }} here..." required></textarea>
       </div>
       
       <div class="quick-reply-actions">
@@ -126,7 +126,7 @@
           <i class="bi bi-send-fill"></i>
           <span>Send Reply</span>
         </button>
-        <a href="{% url 'compose' %}?to={{ last_msg.imap.from_|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-cancel" style="text-decoration: none;">
+        <a href="{% url 'compose' %}?to={{ reply_to_address|urlencode }}&subject=Re:%20{{ cleaned_subject|urlencode }}&in_reply_to={{ last_msg.meta.message_id|urlencode }}" class="btn-cancel" style="text-decoration: none;">
           Open Full Editor
         </a>
       </div>

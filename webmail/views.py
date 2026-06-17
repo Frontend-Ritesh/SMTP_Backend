@@ -263,6 +263,23 @@ def message_detail(request, folder: str, uid: int):
     
     # Prepare details of the last message in thread (for pre-filling quick reply details)
     last_msg = messages_in_thread[-1] if messages_in_thread else None
+    
+    reply_to_address = ""
+    if last_msg:
+        sender_email = last_msg["sender_email"].lower().strip()
+        my_email = mb.address.lower().strip()
+        if sender_email == my_email:
+            recipients = [parseaddr(r)[1].lower().strip() for r in last_msg["imap"].to if r]
+            other_recipients = [r for r in recipients if r and r != my_email]
+            if other_recipients:
+                reply_to_address = other_recipients[0]
+            elif recipients:
+                reply_to_address = recipients[0]
+            else:
+                reply_to_address = last_msg["sender_email"]
+        else:
+            reply_to_address = last_msg["sender_email"]
+
     cleaned = _clean_subject(target_meta.subject)
     
     return render(request, "webmail/message.html", {
@@ -272,6 +289,7 @@ def message_detail(request, folder: str, uid: int):
         "cleaned_subject": cleaned,
         "messages_in_thread": messages_in_thread,
         "last_msg": last_msg,
+        "reply_to_address": reply_to_address,
     })
 
 
